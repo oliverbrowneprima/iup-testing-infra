@@ -28,14 +28,9 @@ ENGINE = "aurora-postgresql"
 ENGINE_VERSION = "12.12"
 INSTANCE_CLASS = "db.t3.medium"
 MASTER_USERNAME = "IupTestAdmin"
-MASTER_PASSWORD = pulumi_random.RandomPassword(
-    f"{pulumi.get_project()}-master-password",
-    length=32,
-    special=False,
-)
 
 
-def make_cluster(name, cluster_parameter_group):
+def make_cluster(name, cluster_parameter_group, password):
     cluster_name = f"{name}-{pulumi.get_stack()}"
     return rds.Cluster(
         f"{cluster_name}-cluster",
@@ -45,7 +40,7 @@ def make_cluster(name, cluster_parameter_group):
         engine=ENGINE,  # What we use in prod
         engine_mode="provisioned",  # We want a normal DB, not "serverless"
         engine_version=ENGINE_VERSION,  # What we use in prod
-        master_password=MASTER_PASSWORD.result,  # Good enough for testing
+        master_password=password,  # Good enough for testing
         master_username=MASTER_USERNAME,  # Good enough for testing
         storage_encrypted=False,  # Test cluster, stored data is non-sensitive test data
         skip_final_snapshot=True,  # Test cluster, we want to be able to tear down at will
@@ -69,22 +64,37 @@ def make_instances(name, cluster, count):
         instances.append(instance)
 
 
-cluster_parameter_group = rds.ClusterParameterGroup(
-    "iup-replication-experiment-parameter-group",
-    description="Parameter group for IUP replication experiment",
-    family=FAMILY,
-    parameters=to_params(cluster_parameter_group_args),
-)
+if pulumi.config.Config("clusters").get_bool("enabled"):
+    cluster_parameter_group = rds.ClusterParameterGroup(
+        "iup-replication-experiment-parameter-group",
+        description="Parameter group for IUP replication experiment",
+        family=FAMILY,
+        parameters=to_params(cluster_parameter_group_args),
+    )
 
-cluster_one = make_cluster("iup-replication-experiment-one", cluster_parameter_group)
-cluster_two = make_cluster("iup-replication-experiment-two", cluster_parameter_group)
+    master_password = pulumi_random.RandomPassword(
+        f"{pulumi.get_project()}-master-password",
+        length=32,
+        special=False,
+    )
 
-instances_one = make_instances("iup-replication-experiment-one", cluster_one, 2)
-instances_two = make_instances("iup-replication-experiment-two", cluster_two, 2)
+    cluster_one = make_cluster(
+        "iup-replication-experiment-one",
+        cluster_parameter_group,
+        master_password.result,
+    )
+    cluster_two = make_cluster(
+        "iup-replication-experiment-two",
+        cluster_parameter_group,
+        master_password.result,
+    )
 
-pulumi.export("cluster_one", cluster_one)
-pulumi.export("cluster_two", cluster_two)
-pulumi.export("instances_one", instances_one)
-pulumi.export("instances_two", instances_two)
-pulumi.export("cluster_parameter_group", cluster_parameter_group)
-pulumi.export("master_password", MASTER_PASSWORD.result)
+    instances_one = make_instances("iup-replication-experiment-one", cluster_one, 2)
+    instances_two = make_instances("iup-replication-experiment-two", cluster_two, 2)
+
+    pulumi.export("cluster_one", cluster_one)
+    pulumi.export("cluster_two", cluster_two)
+    pulumi.export("instances_one", instances_one)
+    pulumi.export("instances_two", instances_two)
+    pulumi.export("cluster_parameter_group", cluster_parameter_group)
+    pulumi.export("master_password", master_password.result)
