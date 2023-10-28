@@ -1,0 +1,6 @@
+name: learning-pulumi
+runtime:
+  name: python
+  options:
+    virtualenv: .venv
+description: For my sins

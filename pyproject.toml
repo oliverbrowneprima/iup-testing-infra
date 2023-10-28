@@ -1,0 +1,11 @@
+[tool.poetry]
+name = "learning-pulumi"
+version = "0.1.0"
+description = "for my sins"
+authors = ["Oliver Browne"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pulumi = "^3.0"
+pulumi-aws = "^5.14"
+pulumi-random = "^4.2"
