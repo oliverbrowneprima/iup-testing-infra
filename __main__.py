@@ -12,6 +12,7 @@ def to_params(args):
 
 cluster_parameter_group_args = {
     "pglogical.conflict_log_level": "error",
+    "shared_preload_libraries": "pglogical",
     "rds.logical_replication": "1",
     # This is the default, but it needs to be at least more than the number of expected subscriptions
     # so I've called it out explicitly
