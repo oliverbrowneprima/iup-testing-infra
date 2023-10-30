@@ -2,3 +2,4 @@ encryptionsalt: v1:F1Jz3+ukvy8=:v1:lPb2Q8lijNHY0Iqx:tG8FZ6sNtM/14+sfK5E5N3kjnlrH
 config:
   aws:region: eu-west-1
   clusters:enabled: false
+  compute:enabled: false

@@ -1,5 +1,5 @@
 import pulumi
-from pulumi_aws import rds
+from pulumi_aws import rds, ec2
 import pulumi_random
 
 
@@ -64,7 +64,7 @@ def make_instances(name, cluster, count):
         instances.append(instance)
 
 
-if pulumi.config.Config("clusters").get_bool("enabled"):
+if pulumi.config.Config("clusters").require_bool("enabled"):
     cluster_parameter_group = rds.ClusterParameterGroup(
         "iup-replication-experiment-parameter-group",
         description="Parameter group for IUP replication experiment",
@@ -98,3 +98,23 @@ if pulumi.config.Config("clusters").get_bool("enabled"):
     pulumi.export("instances_two", instances_two)
     pulumi.export("cluster_parameter_group", cluster_parameter_group)
     pulumi.export("master_password", master_password.result)
+
+if pulumi.config.Config("compute").require_bool("enabled"):
+    olivers_pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDqBrJAHEJAYAC2yEVFPFoeg1wy6i2QyPXR+8qJWvWbtq4YzzhhDPPyKeWgzL11d4lsRawIZWV/UjMghhJ66m9zG6LMFV5rX4WpOZYODeqcFejaktMutenXMnGiSiscXtzgv6ffEipR4mllI5T3EruYI8z9ROmjyXpQVFccxuex+LPwmO0wUf2OSFa7wK8v+B4Htb0gKeCKxJ13tcOOUL6e6BuwH7I0hrzgvMhHjVB4LSykRM6JdNro2MbT+piMsLC4MSBs3hweFmmrlKyTLAmyrk940d5QwgEVyvH/YiucHz/v0CAQYaObMiGigGS+/BRpSDV3/H2AYAN82JZQ02P35eo6fNzl+7lG8k6YGggG0gnCzbDIFf6kWADulxwg47t23pUuRhAAnZNfUbZ/x2Tte0akm0mVtFhln0dVsdmEloHgzWxED3vll7o/T7AAgMJjukapYPWe187YDPD0a/xYkdZ1F5lBZzGKOZ5rrpiOdme1C4LZQYPMztQmcbUBgd8oH9oSUI1RyHIKhuPzb4NBI8sGFxiNmanLLLtKBkFn6E4OixtkXMKgUR1DUMFINYu+WInROeNoZWVxvxNLl3HwSIYLklvhijigdKXdcoxd7xJaD5VSoolGo/iNkks+oc1HfM/KN+Fc66p+nNSBDkcq1OlTbr2FudwVeYJKjNxwnQ=="
+    aws_safe_name_suffix = pulumi.get_stack().replace(".", "-")
+    key_pair = ec2.KeyPair(
+        f"olivers-key-pair={aws_safe_name_suffix}",
+        key_name=f"olivers-key-pair-{aws_safe_name_suffix}",
+        public_key=olivers_pub_key,
+    )
+
+    instance = ec2.Instance(
+        f"iup-replication-experiment-test-client-{aws_safe_name_suffix}",
+        ami="ami-0694d931cee176e7d",  # Ubuntu Server 22.04 LTS (HVM), SSD Volume Type
+        instance_type="t3.medium",  # 2vCPU, 4GB RAM - you know, like a raspberry pi from a few years ago. Medium.
+        key_name=key_pair.key_name,
+        associate_public_ip_address=True,
+    )
+
+    pulumi.export("compute_key_pair", key_pair)
+    pulumi.export("compute_instance", instance)
